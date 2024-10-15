@@ -75,6 +75,7 @@ Install-ChocoPackageIfNotInstalled "signal"
 Write-Host "Installing game launchers"
 Install-ChocoPackageIfNotInstalled "steam"
 Install-ChocoPackageIfNotInstalled "epicgameslauncher"
+#ea origin
 
 #Emulation/VM:
 Write-Host "Installing VM software"
