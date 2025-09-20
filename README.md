@@ -14,11 +14,12 @@ Second:
 Execute InstallSoftware.ps1 script.
 
 Third:
-Install software not available in chocolatey, such as vcpkg. The InstallSoftware.ps1 in the testing repo should automatically prompt you to install VCPKG to "~/Documents", but I have not tested it. 
+Install software not available in winget, such as vcpkg. The InstallSoftware.ps1 in the testing repo should automatically prompt you to install VCPKG to "~/Documents", but I have not tested it. 
 
 Fourth:
 Install all other dependencies, such as Win SDK using Visual Studio Installer.
 
 Fifth:
 Set VCPKG_ROOT environment variable. Ensure it's added to path. Make sure CMAKE installer correctly added CMAKE to path. 
+
 
