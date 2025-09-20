@@ -1,120 +1,148 @@
 # Temporarily bypass execution policy with unsigned script
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
-#Manual Install:
-    #Blender
-    #ZeroTier
-    #Python3-aider
-    #cywgin -> devel + mintty -> "C:\cygwin64\bin" to path
-    #msys2
-    #git-lfs
-    #May not be a bad idea to parse this list for software that chocolatey doesn't keep updated well.
-    
-    #Lib:
-    #SDL2
-    #zlib -> OpenTTD
-
-#Chocolatey:
-Write-Host "Installing Chocolatey if not installed."
-if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-    Write-Host "Chocolatey is not installed. Installing Chocolatey..."
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+# Ensure winget is available
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Warning "winget (Windows Package Manager) is not available. Install 'App Installer' from Microsoft Store, then rerun."
+    exit 1
 }
-choco upgrade chocolatey -y
 
-#Function to call Chocolatey and install a package if it's not already installed.
-function Install-ChocoPackageIfNotInstalled {
-    param (
-        [string]$packageName
+# Resolve & install a winget package if not already installed.
+function Install-WingetPackageIfNotInstalled {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$Name,      # Human name (used to search if Id not given)
+        [string]$Id,                                    # Exact winget Id (preferred)
+        [string]$OverrideArgs                           # e.g., 'ADD_CMAKE_TO_PATH=System'
     )
 
-    if (-not (choco list --local-only | Select-String $packageName)) {
-        choco install $packageName -y
-    } else {
-        Write-Host "$packageName is already installed."
+    # Helper: return $true if package with Id is already installed
+    function Test-PackageInstalledById([string]$PkgId) {
+        if (-not $PkgId) { return $false }
+        try {
+            $list = winget list --id $PkgId -s winget -o json 2>$null | ConvertFrom-Json
+            return ($list.SourceDetails.Count -gt 0 -or $list.Matches.Count -gt 0 -or $list.InstalledPackages.Count -gt 0)
+        } catch { return $false }
     }
+
+    # Resolve Id from Name (exact) if needed
+    $resolvedId = $Id
+    if (-not $resolvedId) {
+        try {
+            $srch = winget search --name "$Name" -e -s winget -o json 2>$null | ConvertFrom-Json
+            if ($srch.Count -gt 0) {
+                # Prefer first exact result
+                $resolvedId = $srch[0].Id
+            }
+        } catch { $resolvedId = $null }
+    }
+
+    # If we still don't have an Id, give up gracefully
+    if (-not $resolvedId) {
+        Write-Warning "No winget package found for: $Name. Commented out and moved to Manual section."
+        return $false
+    }
+
+    # Skip if already installed
+    if (Test-PackageInstalledById $resolvedId) {
+        Write-Host "$Name is already installed."
+        return $true
+    }
+
+    # Build install command
+    $args = @("install","--id",$resolvedId,"-e","--silent","--accept-package-agreements","--accept-source-agreements")
+    if ($OverrideArgs) {
+        $args += @("--override",$OverrideArgs)
+    }
+
+    Write-Host "Installing $Name ($resolvedId)..."
+    $proc = Start-Process winget -ArgumentList $args -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        Write-Warning "winget failed for $Name ($resolvedId) with exit code $($proc.ExitCode)."
+        return $false
+    }
+    return $true
 }
-#WSL-Ubuntu:
-Write-Host "Installing Ubuntu Preview WSL if not installed."
-if (-not (wsl --list --verbose | Select-String "Ubuntu-Preview")) {
+
+# --------------------------
+# WSL: Ubuntu Preview
+# --------------------------
+Write-Host "Ensuring WSL Ubuntu-Preview is installed..."
+if (-not (wsl --list --verbose 2>$null | Select-String "Ubuntu-Preview")) {
     wsl --install -d Ubuntu-Preview
 } else {
-    Write-Host "Ubuntu Preview is already installed."
+    Write-Host "Ubuntu-Preview is already installed."
 }
-#IDE:
-Write-Host "Installing IDEs and related software."
-Install-ChocoPackageIfNotInstalled "visualstudio2022community"
 
-#JB/IDE:
-Install-ChocoPackageIfNotInstalled "jetbrainstoolbox"
+# --------------------------
+# Packages (most have exact IDs; a few rely on Name auto-resolve)
+# --------------------------
+$packages = @(
+    # IDEs
+    @{ Name="Visual Studio Community 2022"; Id="Microsoft.VisualStudio.2022.Community" }   # workloads can be added later
+    @{ Name="JetBrains Toolbox";            Id="JetBrains.Toolbox" }
 
-#Text Editor:
-Write-Host "Installing text editors"
-Install-ChocoPackageIfNotInstalled "neovim"
-Install-ChocoPackageIfNotInstalled "vscode"
+    # Terminals
+    @{ Name="Windows Terminal Preview";     Id="Microsoft.WindowsTerminal.Preview" }
 
-#Coding Tools:
-Write-Host "Installing common software development tools."
-Install-ChocoPackageIfNotInstalled "docker-desktop"
-Install-ChocoPackageIfNotInstalled "github-desktop"
-Install-ChocoPackageIfNotInstalled "git"
-Install-ChocoPackageIfNotInstalled "cmake --installargs 'ADD_CMAKE_TO_PATH=System'"
-Install-ChocoPackageIfNotInstalled "cygwin"
+    # Editors
+    @{ Name="Neovim";                       Id="Neovim.Neovim" }
+    @{ Name="Visual Studio Code";           Id="Microsoft.VisualStudioCode" }
 
+    # Coding tools
+    @{ Name="Docker Desktop";               Id="Docker.DockerDesktop" }
+    @{ Name="GitHub Desktop";               Id="GitHub.GitHubDesktop" }
+    @{ Name="Git";                          Id="Git.Git" }
+    @{ Name="CMake";                        Id="Kitware.CMake";           OverrideArgs="ADD_CMAKE_TO_PATH=System" }
+    #@{ Name="Cygwin";                       Id="Cygwin.Cygwin" }
+    #@{ Name="MSYS2";                        Id="MSYS2.MSYS2" }
+    #@{ Name="Git LFS";                      Id="GitHub.GitLFS" }
 
-#LLM:
-Install-ChocoPackageIfNotInstalled "ollama"
+    # LLM / DevOps
+    @{ Name="Ollama";                       Id="Ollama.Ollama" }
 
+    # Messaging
+    @{ Name="Signal";                       Id="OpenWhisperSystems.Signal" }
 
-#Messaging:
-Write-Host "Installing messaging software."
-Install-ChocoPackageIfNotInstalled "signal"
+    # Gaming / Launchers
+    @{ Name="Steam";                        Id="Valve.Steam" }
+    @{ Name="Epic Games Launcher";          Id="EpicGames.EpicGamesLauncher" }
+    #@{ Name="EA App";                       Id="ElectronicArts.EADesktop" }
 
-#Gaming/Launcher:
-Write-Host "Installing game launchers"
-Install-ChocoPackageIfNotInstalled "steam"
-Install-ChocoPackageIfNotInstalled "epicgameslauncher"
-#ea origin
+    # Emulation / VM
+    @{ Name="VirtualBox";                   Id="Oracle.VirtualBox" }
+    #@{ Name="QEMU";                         Id="SoftwareFreedomConservancy.QEMU" }
 
-#Emulation/VM:
-Write-Host "Installing VM software"
-Install-ChocoPackageIfNotInstalled "virtualbox"
-#QEMU?
+    # Python / Conda
+    #@{ Name="Miniconda3";                   Id="Anaconda.Miniconda3" }
 
-#Conda:
-Write-Host "Installing python and tools."
-Install-ChocoPackageIfNotInstalled "miniconda3"
+    # Misc
+    @{ Name="Okular";                       Id="KDE.Okular" }
+    @{ Name="PowerToys";                    Id="Microsoft.PowerToys" }
+    #@{ Name="7-Zip";                        Id="7zip.7zip" }
+    #@{ Name="WinDirStat";                   Id="WinDirStat.WinDirStat" }
 
-#Python3
+    # Art
+    #@{ Name="Paint.NET";                    Id="dotPDNLLC.paintdotnet" }
+    #@{ Name="GIMP";                         Id="GIMP.GIMP" }
+    #@{ Name="Krita";                        Id="KDE.Krita" }
+    #@{ Name="Blender";                      Id="BlenderFoundation.Blender" }
 
-#Misc:
-Write-Host "Installing miscellaneous Windows software."
-Install-ChocoPackageIfNotInstalled "okular"
-Install-ChocoPackageIfNotInstalled "powertoys"
-Install-ChocoPackageIfNotInstalled "7zip"
-Install-ChocoPackageIfNotInstalled "windirstat"
+    # Productivity
+    @{ Name="Obsidian";                     Id="Obsidian.Obsidian" }
+    #@{ Name="Joplin";                       Id="Joplin.Joplin" }
+)
 
-#Art:
-Write-Host "Installing art related software. Please remember to install necessary dependencies and build Aseprite from source."
-Install-ChocoPackageIfNotInstalled "paint.net"
-#Install-ChocoPackageIfNotInstalled "cherrytree"
-#Install-ChocoPackageIfNotInstalled "greenshot"
-Install-ChocoPackageIfNotInstalled "gimp"
-Install-ChocoPackageIfNotInstalled "krita"
-#Install-ChocoPackageIfNotInstalled "blender" 
+# Install loop
+$failed = @()
+foreach ($p in $packages) {
+    $ok = Install-WingetPackageIfNotInstalled -Name $p.Name -Id $p.Id -OverrideArgs $p.OverrideArgs
+    if (-not $ok) { $failed += $p }
+}
 
-#Productivity:
-Write-Host "Installing productivity tools."
-Install-ChocoPackageIfNotInstalled "obsidian"
-Install-ChocoPackageIfNotInstalled "joplin"
-
-#java:
-#Install-ChocoPackageIfNotInstalled "openjdk"
-#Install-ChocoPackageIfNotInstalled "javaruntime"
-
-Write-Host "Installation complete. Please run VCPKG setup script and restart your computer."
-Write-Host "Other software not included here: OneNote, Massgrave AS, Aseprite, Godot, Unreal."
-Write-Host "Other dependencies not included here: Skia for Aseprite, Ninja Build, SDL2, Zlib."
-# Re-enable execution policy
-Set-ExecutionPolicy Restricted -Scope Process -Force
+# --------------------------
+# Manual installs (commented out or not found)
+# --------------------------
+# If something above couldn't be resolved/installed, it will be listed here at runtime:
+if ($failed.Count -gt 0) {
+    Write-Warning "The following entries wer
