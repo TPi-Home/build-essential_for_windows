@@ -168,5 +168,15 @@ foreach ($p in $packages) {
 # --------------------------
 # If something above couldn't be resolved/installed, it will be listed here at runtime:
 if ($failed.Count -gt 0) {
-    Write-Warning "The following entries wer
+    Write-Warning "The following entries were not installed via winget and may need manual install:"
+    $failed | ForEach-Object { Write-Host (" - {0} (Id tried: {1})" -f $_.Name, ($_.Id | ForEach-Object {$_})) }
+}
 
+# Extra notes you had in the original script
+Write-Host "Other software not included here: OneNote, Massgrave AS, Aseprite (build), Godot, Unreal."
+Write-Host "Other dev libs not handled by winget: SDL2, Zlib (via vcpkg or your build system)."
+Write-Host "Installation complete. Consider running your VCPKG setup next."
+. "$PSScriptRoot\clean.ps1"
+
+# Re-enable execution policy
+Set-ExecutionPolicy Restricted -Scope Process -Force
