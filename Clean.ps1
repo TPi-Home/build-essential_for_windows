@@ -54,5 +54,10 @@ if ($IncludeSystemTemp) {
     Clear-Directory -Path $systemTemp
 }
 
+winget source update --force
+winget settings --enable InstallerHashOverride false
+
+
 Write-Host "Done. Consider refreshing sources with:"
 Write-Host "  winget source update --force"
+
