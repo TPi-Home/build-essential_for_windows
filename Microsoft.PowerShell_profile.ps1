@@ -1,3 +1,4 @@
+#save to C:\Users\tyler\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
 oh-my-posh init pwsh --config "C:\Users\tyler\AppData\Local\Programs\oh-my-posh\themes\aliens.omp.json" | Invoke-Expression
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin -PredictionViewStyle ListView
@@ -11,4 +12,5 @@ Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+f'
 #Set-PsFzfOption -PSReadlineChordForwardHistory 'Ctrl+t'
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin -PredictionViewStyle ListView
+
 Set-PSReadLineOption -EditMode Windows
