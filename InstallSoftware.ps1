@@ -1,3 +1,10 @@
+#oh my posh, fastfetch, fzf, cascadia nerd, meslolgm
+winget install JanDeDobbeleer.OhMyPosh --source winget --scope user --force
+#Install-Module -Name Terminal-Icons -Repository PSGallery
+#Import-Module -Name Terminal-Icons
+#Install-Module posh-git -Scope CurrentUser
+#Install-Module oh-my-posh -Scope CurrentUser
+#Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentUser -Force -SkipPublisherCheck
 # Temporarily bypass execution policy with unsigned script
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
@@ -78,6 +85,22 @@ if (-not (wsl --list --verbose 2>$null | Select-String "Ubuntu-Preview")) {
 # Packages (most have exact IDs; a few rely on Name auto-resolve)
 # --------------------------
 $packages = @(
+    # Network
+    @{ Name="ZeroTier"; Id="ZeroTier.ZeroTierOne" }
+
+
+    # Shells
+    @{ Name="PowerShell 7";                 Id="Microsoft.PowerShell" }
+
+    # DB tools
+    @{ Name="DB Browser for SQLite";        Id="DBBrowserForSQLite.DBBrowserForSQLite" }
+
+    # Office
+    @{ Name="Microsoft 365 Apps (Office)";  Id="Microsoft.Office" }
+
+    # VPN
+    @{ Name="Proton VPN";                   Id="Proton.ProtonVPN" }
+
     # IDEs
     @{ Name="Visual Studio Community 2022"; Id="Microsoft.VisualStudio.2022.Community" }   # workloads can be added later
     @{ Name="JetBrains Toolbox";            Id="JetBrains.Toolbox" }
@@ -146,3 +169,4 @@ foreach ($p in $packages) {
 # If something above couldn't be resolved/installed, it will be listed here at runtime:
 if ($failed.Count -gt 0) {
     Write-Warning "The following entries wer
+
